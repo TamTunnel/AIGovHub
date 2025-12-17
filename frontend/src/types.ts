@@ -1,5 +1,8 @@
 export type RiskLevel = 'unclassified' | 'minimal' | 'limited' | 'high' | 'unacceptable';
 export type ComplianceStatus = 'draft' | 'under_review' | 'approved' | 'retired';
+export type PolicyScope = 'global' | 'organization' | 'environment';
+export type PolicyConditionType = 'require_evaluation_before_approval' | 'block_high_risk_without_approval' | 'require_review_for_high_risk';
+export type Environment = 'dev' | 'test' | 'staging' | 'prod';
 
 export interface ModelRegistry {
     id: number;
@@ -14,6 +17,8 @@ export interface ModelRegistry {
     intended_purpose?: string;
     data_sources?: string;
     oversight_plan?: string;
+    organization_id?: number;
+    environment?: Environment;
 }
 
 export interface ModelVersion {
@@ -47,4 +52,36 @@ export interface DashboardStats {
     by_risk_level: { risk_level: string; count: number }[];
     by_compliance_status: { status: string; count: number }[];
 }
+
+export interface Policy {
+    id: number;
+    name: string;
+    description?: string;
+    scope: PolicyScope;
+    condition_type: PolicyConditionType;
+    is_active: boolean;
+    organization_id?: number;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface PolicyViolation {
+    id: number;
+    policy_id: number;
+    model_id?: number;
+    model_version_id?: number;
+    user_id?: number;
+    action: string;
+    details?: Record<string, unknown>;
+    created_at: string;
+}
+
+export interface Organization {
+    id: number;
+    name: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+}
+
 

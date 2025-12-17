@@ -61,6 +61,7 @@ export function ModelList() {
                 <Title order={2}>AI Model Registry</Title>
                 <Group>
                     <Button variant="light" onClick={() => navigate('/dashboard')}>Dashboard</Button>
+                    <Button variant="light" onClick={() => navigate('/policies')}>Policies</Button>
                     <Button onClick={() => navigate('/new')}>Register New Model</Button>
                 </Group>
             </Group>

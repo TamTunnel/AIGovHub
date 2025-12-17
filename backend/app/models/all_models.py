@@ -25,10 +25,14 @@ class ComplianceStatus(str, Enum):
 
 class ModelRegistry(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True, unique=True)
+    name: str = Field(index=True)  # Removed unique constraint for multi-org
     description: Optional[str] = None
     owner: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Multi-tenancy fields
+    organization_id: Optional[int] = Field(default=None, foreign_key="organization.id")
+    environment: str = Field(default="dev")  # dev, test, staging, prod
     
     # Risk Profile fields
     risk_level: RiskLevel = Field(default=RiskLevel.unclassified)

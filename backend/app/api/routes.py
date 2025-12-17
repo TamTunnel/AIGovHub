@@ -147,10 +147,30 @@ def update_compliance_status(
     payload: ComplianceStatusUpdate,
     session: Session = Depends(get_session)
 ):
-    """Update model compliance status (draft → under_review → approved → retired)"""
+    """Update model compliance status (draft → under_review → approved → retired)
+    
+    Policy enforcement is applied before status changes. If a policy is violated,
+    the action is blocked and a PolicyViolation record is created.
+    """
+    from ..core.policy_engine import enforce_compliance_status_change
+    
     model = session.get(ModelRegistry, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Enforce policies before allowing status change
+    enforcement_result = enforce_compliance_status_change(
+        session=session,
+        model=model,
+        new_status=payload.status,
+        user_id=None  # Could be populated from auth context
+    )
+    
+    if not enforcement_result.allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Policy violation: {enforcement_result.message}"
+        )
     
     old_status = model.compliance_status
     model.compliance_status = payload.status
