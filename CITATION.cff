@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software in your research or agency, please cite it as below."
+authors:
+- family-names: "Tunnel"
+  given-names: "Tam"
+title: "AI Governance Hub"
+version: 0.4.0
+date-released: 2024-01-01
+url: "https://github.com/TamTunnel/AI-Governance-Hub"
+repository-code: "https://github.com/TamTunnel/AI-Governance-Hub"
+license: "Apache-2.0"
+abstract: "A centralized, open-source platform for managing AI models, aligned with NIST AI RMF and EU AI Act requirements. Features include Model Registry, Risk Profiles, Policy Enforcement, and Lineage Tracking."
+keywords:
+  - ai-governance
+  - nist-ai-rmf
+  - eu-ai-act
+  - model-registry
+  - compliance
+  - responsible-ai
