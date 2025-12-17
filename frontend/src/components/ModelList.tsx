@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Table, Button, Container, Title, Group, Paper } from '@mantine/core';
+import { Table, Button, Container, Title, Group, Paper, Badge } from '@mantine/core';
 import { getModels } from '../api';
 import type { ModelRegistry } from '../types';
 import { useNavigate } from 'react-router-dom';
+
+const RISK_COLORS: Record<string, string> = {
+    unclassified: 'gray',
+    minimal: 'green',
+    limited: 'blue',
+    high: 'orange',
+    unacceptable: 'red'
+};
+
+const STATUS_COLORS: Record<string, string> = {
+    draft: 'gray',
+    under_review: 'yellow',
+    approved: 'green',
+    retired: 'dark'
+};
 
 export function ModelList() {
     const [models, setModels] = useState<ModelRegistry[]>([]);
@@ -26,6 +41,16 @@ export function ModelList() {
             <td>{model.id}</td>
             <td>{model.name}</td>
             <td>{model.owner}</td>
+            <td>
+                <Badge color={RISK_COLORS[model.risk_level] || 'gray'}>
+                    {model.risk_level}
+                </Badge>
+            </td>
+            <td>
+                <Badge color={STATUS_COLORS[model.compliance_status] || 'gray'}>
+                    {model.compliance_status.replace('_', ' ')}
+                </Badge>
+            </td>
             <td>{new Date(model.created_at).toLocaleDateString()}</td>
         </tr>
     ));
@@ -34,7 +59,10 @@ export function ModelList() {
         <Container size="lg" py="xl">
             <Group justify="space-between" mb="lg">
                 <Title order={2}>AI Model Registry</Title>
-                <Button onClick={() => navigate('/new')}>Register New Model</Button>
+                <Group>
+                    <Button variant="light" onClick={() => navigate('/dashboard')}>Dashboard</Button>
+                    <Button onClick={() => navigate('/new')}>Register New Model</Button>
+                </Group>
             </Group>
             <Paper shadow="xs" p="md" withBorder>
                 <Table highlightOnHover>
@@ -43,6 +71,8 @@ export function ModelList() {
                             <th>ID</th>
                             <th>Name</th>
                             <th>Owner</th>
+                            <th>Risk Level</th>
+                            <th>Status</th>
                             <th>Created At</th>
                         </tr>
                     </thead>
@@ -52,3 +82,4 @@ export function ModelList() {
         </Container>
     );
 }
+

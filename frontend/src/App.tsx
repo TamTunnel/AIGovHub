@@ -4,6 +4,7 @@ import '@mantine/core/styles.css';
 import { ModelList } from './components/ModelList';
 import { ModelForm } from './components/ModelForm';
 import { ModelDetail } from './components/ModelDetail';
+import { ComplianceDashboard } from './components/ComplianceDashboard';
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<ModelList />} />
+          <Route path="/dashboard" element={<ComplianceDashboard />} />
           <Route path="/new" element={<ModelForm />} />
           <Route path="/models/:id" element={<ModelDetail />} />
         </Routes>
@@ -20,3 +22,4 @@ function App() {
 }
 
 export default App;
+

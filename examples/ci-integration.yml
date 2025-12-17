@@ -1,0 +1,114 @@
+# CI Integration Example
+#
+# This GitHub Actions workflow demonstrates how to integrate with the
+# AI Governance Hub API after model training to:
+# 1. Register a new model (or skip if exists)
+# 2. Create a version for the trained model
+# 3. Push evaluation metrics
+#
+# Add this as .github/workflows/model-training.yml in your ML project
+
+name: Model Training with Governance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'models/**'
+      - 'training/**'
+
+env:
+  GOVERNANCE_API_URL: ${{ secrets.GOVERNANCE_API_URL }}  # e.g., https://api.governance-hub.example.com/api/v1
+  GOVERNANCE_API_TOKEN: ${{ secrets.GOVERNANCE_API_TOKEN }}
+
+jobs:
+  train-and-register:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Train model
+        run: python train.py
+        # This should output model metrics to metrics.json
+      
+      - name: Register model with Governance Hub
+        run: |
+          # Register model (will fail silently if already exists)
+          curl -X POST "${GOVERNANCE_API_URL}/models/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            -d '{
+              "name": "${{ github.repository }}-model",
+              "owner": "${{ github.actor }}",
+              "description": "Model trained from ${{ github.repository }}",
+              "risk_level": "high",
+              "domain": "general",
+              "intended_purpose": "Automated inference from CI/CD pipeline"
+            }' || true
+      
+      - name: Get model ID
+        id: get-model
+        run: |
+          MODEL_ID=$(curl -s "${GOVERNANCE_API_URL}/models/" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            | jq -r '.[] | select(.name == "${{ github.repository }}-model") | .id')
+          echo "model_id=${MODEL_ID}" >> $GITHUB_OUTPUT
+      
+      - name: Create version
+        id: create-version
+        run: |
+          VERSION_RESPONSE=$(curl -X POST "${GOVERNANCE_API_URL}/versions/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            -d '{
+              "model_id": ${{ steps.get-model.outputs.model_id }},
+              "version_tag": "v${{ github.run_number }}.0.0",
+              "s3_path": "s3://models/${{ github.repository }}/${{ github.sha }}"
+            }')
+          VERSION_ID=$(echo $VERSION_RESPONSE | jq -r '.id')
+          echo "version_id=${VERSION_ID}" >> $GITHUB_OUTPUT
+      
+      - name: Push evaluation metrics
+        run: |
+          # Read metrics from training output
+          ACCURACY=$(jq -r '.accuracy' metrics.json)
+          F1_SCORE=$(jq -r '.f1_score' metrics.json)
+          
+          # Push accuracy metric
+          curl -X POST "${GOVERNANCE_API_URL}/metrics/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            -d '{
+              "version_id": ${{ steps.create-version.outputs.version_id }},
+              "metric_name": "accuracy",
+              "value": '"${ACCURACY}"'
+            }'
+          
+          # Push F1 score metric
+          curl -X POST "${GOVERNANCE_API_URL}/metrics/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            -d '{
+              "version_id": ${{ steps.create-version.outputs.version_id }},
+              "metric_name": "f1_score",
+              "value": '"${F1_SCORE}"'
+            }'
+      
+      - name: Update compliance status to under_review
+        run: |
+          curl -X PATCH "${GOVERNANCE_API_URL}/models/${{ steps.get-model.outputs.model_id }}/compliance-status" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GOVERNANCE_API_TOKEN}" \
+            -d '{
+              "status": "under_review",
+              "reason": "New version deployed from CI/CD - requires compliance review"
+            }'

@@ -10,7 +10,8 @@ export const getModels = async () => {
     return response.data;
 };
 
-export const createModel = async (model: Omit<ModelRegistry, 'id' | 'created_at'>) => {
+// Create model only requires name, owner, description - backend sets defaults for risk_level, compliance_status
+export const createModel = async (model: { name: string; owner: string; description?: string }) => {
     const response = await api.post<ModelRegistry>('/models/', model);
     return response.data;
 };

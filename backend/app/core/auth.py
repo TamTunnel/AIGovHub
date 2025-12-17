@@ -1,9 +1,10 @@
 """
-OAuth2 Authentication with JWT tokens.
-Provides user registration, login, and token verification.
+OAuth2 Authentication with JWT tokens and Role-Based Access Control.
+Provides user registration, login, token verification, and RBAC.
 """
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
+from enum import Enum
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -21,7 +22,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- OAuth2 Scheme ---
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
+
+
+class UserRole(str, Enum):
+    """User roles for RBAC"""
+    admin = "admin"  # Full access
+    model_owner = "model_owner"  # Can create/modify models
+    auditor = "auditor"  # Read-only access
 
 
 # --- User Model ---
@@ -31,7 +39,7 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True)
     hashed_password: str
     is_active: bool = Field(default=True)
-    is_admin: bool = Field(default=False)
+    role: UserRole = Field(default=UserRole.auditor)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -49,6 +57,7 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
+    role: Optional[UserRole] = UserRole.auditor
 
 
 class UserRead(BaseModel):
@@ -56,7 +65,7 @@ class UserRead(BaseModel):
     username: str
     email: str
     is_active: bool
-    is_admin: bool
+    role: UserRole
 
     class Config:
         from_attributes = True
@@ -89,16 +98,36 @@ def authenticate_user(session: Session, username: str, password: str) -> Optiona
     return user
 
 
-# --- Dependency ---
+# --- Dependencies ---
+def get_current_user_optional(
+    token: str = Depends(oauth2_scheme),
+    session: Session = Depends(lambda: None)
+) -> Optional[User]:
+    """Get current user if authenticated, None otherwise"""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        return get_user(session, username)
+    except JWTError:
+        return None
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
-    session: Session = Depends(lambda: None)  # Will be injected properly in routes
+    session: Session = Depends(lambda: None)
 ) -> User:
+    """Require authenticated user"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -113,10 +142,20 @@ def get_current_user(
     return user
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required"
-        )
-    return current_user
+def require_role(allowed_roles: List[UserRole]):
+    """Dependency factory for role-based access control"""
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role: {[r.value for r in allowed_roles]}"
+            )
+        return current_user
+    return role_checker
+
+
+# Convenience dependencies
+require_admin = require_role([UserRole.admin])
+require_model_owner = require_role([UserRole.admin, UserRole.model_owner])
+require_viewer = require_role([UserRole.admin, UserRole.model_owner, UserRole.auditor])
+

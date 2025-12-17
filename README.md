@@ -5,11 +5,41 @@
 
 ## What Is This?
 
-A **centralized platform** for managing your organization's AI models—a registry that tracks every AI system, its versions, performance metrics, and a complete audit trail. It helps answer:
+A **centralized platform** for managing your organization's AI models—a registry that tracks every AI system, its versions, performance metrics, risk profiles, and a complete audit trail for EU AI Act compliance.
 
-- *"What AI models are we running in production?"*
-- *"Who owns this model? When was it last updated?"*
-- *"Can we prove compliance for regulatory audits (EU AI Act)?"*
+---
+
+## Who Is This For?
+
+| Role | Value |
+|------|-------|
+| **ML Engineers** | Register models, track versions, store evaluation metrics automatically via CI/CD |
+| **Compliance Officers** | View audit trails, approve compliance status, generate PDF reports for regulators |
+| **CTOs/Engineering Leaders** | Dashboard overview of model risk levels and compliance status across the organization |
+| **Auditors** | Read-only access to model registry, versions, metrics, and audit logs |
+
+---
+
+## Usage Scenarios
+
+### Scenario 1: New Model Deployment
+1. ML team trains a new fraud detection model
+2. CI/CD pipeline automatically registers the model and pushes evaluation metrics
+3. Model starts in `draft` status with `high` risk level (finance domain)
+4. Compliance team reviews via `/dashboard`, updates to `under_review`
+5. After approval, status changes to `approved` with full audit trail
+
+### Scenario 2: EU AI Act Audit
+1. Regulator requests documentation for high-risk AI systems
+2. Compliance officer filters models by `risk_level=high`
+3. Downloads PDF compliance report for each model
+4. Report includes: intended purpose, data sources, evaluation metrics, oversight plan
+
+### Scenario 3: Model Retirement
+1. Old recommendation model needs to be retired
+2. Admin changes compliance status to `retired` with reason
+3. Audit log captures the change for future reference
+4. Model remains in registry for historical records
 
 ---
 
@@ -17,16 +47,41 @@ A **centralized platform** for managing your organization's AI models—a regist
 
 | Feature | Description |
 |---------|-------------|
-| **Model Registry** | Register and catalog AI models with name, owner, and description |
-| **Version Tracking** | Track model versions (v1.0, v2.1) and artifact storage locations (S3) |
-| **Evaluation Metrics** | Store accuracy, F1 score, bias metrics per version |
-| **Audit Logging** | Automatic immutable compliance trail for all create/update actions |
-| **API Schemas (DTOs)** | Pydantic validation schemas separate from database models |
-| **OAuth2 Authentication** | JWT-based auth with user registration and login |
-| **PDF Compliance Reports** | Generate EU AI Act style compliance reports for any model |
-| **Health Monitoring** | `/health` endpoint for load balancers and Kubernetes probes |
-| **Secrets Management** | Environment-based configuration, no hardcoded credentials |
-| **CI/CD Pipeline** | GitHub Actions for linting, testing, building, and deployment |
+| **Model Registry** | Register AI models with name, owner, description |
+| **Risk Profiles** | Classify models by EU AI Act risk levels (minimal, limited, high, unacceptable) |
+| **Compliance Lifecycle** | Track status: draft → under_review → approved → retired |
+| **Version Tracking** | Track model versions and artifact locations (S3) |
+| **Evaluation Metrics** | Store accuracy, F1, bias scores per version |
+| **Audit Logging** | Automatic immutable trail for all changes |
+| **Compliance Dashboard** | Visual overview of models by risk level and status |
+| **PDF Reports** | Generate EU AI Act style compliance documentation |
+| **Role-Based Access** | admin, model_owner, auditor roles |
+| **OAuth2 Auth** | JWT authentication |
+| **CI/CD Integration** | GitHub Actions workflow examples |
+
+---
+
+## Roles & Permissions (RBAC)
+
+| Role | Permissions |
+|------|-------------|
+| `admin` | Full access - create, modify, delete models and users |
+| `model_owner` | Create/modify models, change compliance status |
+| `auditor` | Read-only - view models, audit logs, download reports |
+
+---
+
+## EU AI Act Feature Mapping
+
+| EU AI Act Requirement | Platform Feature |
+|----------------------|------------------|
+| Risk Classification | `risk_level` field (minimal, limited, high, unacceptable) |
+| Intended Purpose Documentation | `intended_purpose` field |
+| Data Sources Transparency | `data_sources` field |
+| Performance Metrics | Evaluation metrics per version |
+| Human Oversight Plan | `oversight_plan` field |
+| Change Audit Trail | Automatic compliance logs |
+| Lifecycle Management | `compliance_status` (draft → approved → retired) |
 
 ---
 
@@ -35,21 +90,21 @@ A **centralized platform** for managing your organization's AI models—a regist
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      FRONTEND (React)                       │
-│   • Model List Dashboard    • Register New Model Form       │
-│   • Version & Metrics View  • Mantine UI Components         │
+│   • Model Registry List     • Compliance Dashboard          │
+│   • Risk Level Badges       • Status Filters                │
 └─────────────────────────────────────────────────────────────┘
                               │ REST API
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      BACKEND (FastAPI)                      │
-│   /api/v1/models         → Model registry CRUD              │
-│   /api/v1/versions       → Version management               │
-│   /api/v1/metrics        → Evaluation data storage          │
-│   /api/v1/audit-logs     → Compliance audit history         │
-│   /api/v1/auth/register  → User registration                │
-│   /api/v1/auth/token     → JWT login                        │
+│   /api/v1/models              → Model registry CRUD         │
+│   /api/v1/models/{id}/risk-profile → Update risk profile    │
+│   /api/v1/models/{id}/compliance-status → Change status     │
+│   /api/v1/dashboard/stats     → Dashboard statistics        │
+│   /api/v1/versions            → Version management          │
+│   /api/v1/metrics             → Evaluation metrics          │
+│   /api/v1/audit-logs          → Compliance history          │
 │   /api/v1/reports/{id}/compliance-report → PDF download     │
-│   /api/v1/health         → System health check              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -70,14 +125,9 @@ A **centralized platform** for managing your organization's AI models—a regist
 
 ### Run with Docker
 ```bash
-# Clone the repo
 git clone https://github.com/TamTunnel/AI-Governance-Hub.git
 cd AI-Governance-Hub
-
-# Copy environment template
 cp .env.example .env
-
-# Start all services
 docker compose up --build
 ```
 
@@ -85,34 +135,70 @@ docker compose up --build
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:3000 |
-| API Docs (Swagger) | http://localhost:8000/docs |
-| Health Check | http://localhost:8000/api/v1/health |
-
-### Development Mode
-```bash
-# Backend
-cd backend && poetry install && poetry run uvicorn app.main:app --reload
-
-# Frontend (separate terminal)
-cd frontend && npm install && npm run dev
-```
+| Dashboard | http://localhost:3000/dashboard |
+| API Docs | http://localhost:8000/docs |
 
 ---
 
-## API Endpoints
+## CI Integration
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/auth/register` | Create user account |
-| `POST` | `/api/v1/auth/token` | Login, get JWT token |
-| `POST` | `/api/v1/models/` | Register new AI model |
-| `GET` | `/api/v1/models/` | List all models |
-| `GET` | `/api/v1/models/{id}` | Get model details |
-| `POST` | `/api/v1/versions/` | Add model version |
-| `POST` | `/api/v1/metrics/` | Add evaluation metric |
-| `GET` | `/api/v1/audit-logs/` | View compliance audit trail |
-| `GET` | `/api/v1/reports/models/{id}/compliance-report` | Download PDF report |
-| `GET` | `/api/v1/health` | System health status |
+### Example: Register model after training
+
+```bash
+# Register a new model
+curl -X POST "http://localhost:8000/api/v1/models/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "fraud-detector-v2",
+    "owner": "ML Team",
+    "risk_level": "high",
+    "domain": "finance",
+    "intended_purpose": "Detect fraudulent transactions"
+  }'
+
+# Create a version
+curl -X POST "http://localhost:8000/api/v1/versions/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": 1,
+    "version_tag": "v1.0.0",
+    "s3_path": "s3://models/fraud-detector/v1.0.0"
+  }'
+
+# Push evaluation metric
+curl -X POST "http://localhost:8000/api/v1/metrics/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version_id": 1,
+    "metric_name": "accuracy",
+    "value": 0.95
+  }'
+
+# Update compliance status
+curl -X PATCH "http://localhost:8000/api/v1/models/1/compliance-status" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "under_review",
+    "reason": "Ready for compliance review"
+  }'
+```
+
+See [`examples/ci-integration.yml`](examples/ci-integration.yml) for a complete GitHub Actions workflow.
+
+---
+
+## Roadmap
+
+### Planned Features
+
+| Priority | Feature | Description |
+|----------|---------|-------------|
+| 🔴 High | **Policy Engine** | Define and enforce compliance rules automatically |
+| 🔴 High | **Model Lineage** | Track data and model dependencies |
+| 🟡 Medium | **Notifications** | Webhooks and email alerts for status changes |
+| 🟡 Medium | **MLflow Integration** | Import models directly from MLflow |
+| 🟢 Future | **Kubernetes Operator** | Auto-register models deployed to K8s |
+| 🟢 Future | **LLM Governance** | Prompt tracking and response auditing |
 
 ---
 
@@ -123,45 +209,15 @@ cd frontend && npm install && npm run dev
 | Frontend | React, TypeScript, Vite, Mantine UI |
 | Backend | Python 3.11, FastAPI, SQLModel, Pydantic |
 | Database | PostgreSQL 15 |
-| Auth | OAuth2, JWT (python-jose), bcrypt |
-| Reports | ReportLab (PDF generation) |
+| Auth | OAuth2, JWT, bcrypt, RBAC |
+| Reports | ReportLab (PDF) |
 | Infrastructure | Docker, Docker Compose, Nginx |
 | CI/CD | GitHub Actions |
 
 ---
 
-## Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_secure_password
-DATABASE_URL=postgresql://postgres:password@db:5432/ai_governance
-
-# Authentication
-SECRET_KEY=your-secret-key-minimum-32-characters
-
-# Frontend
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
----
-
-## CI/CD Pipeline
-
-The GitHub Actions workflow (`.github/workflows/ci.yml`) includes:
-
-1. **Backend Tests** - Runs pytest with PostgreSQL service
-2. **Frontend Build** - Lints and builds the React app
-3. **Docker Build** - Builds production images
-4. **Deploy** - Placeholder for staging/production deployment
-
----
-
 ## License
 
-This project is licensed under the **Apache License 2.0** — an enterprise-friendly open-source license that permits commercial use, modification, and distribution.
+Licensed under **Apache License 2.0** — enterprise-friendly, permits commercial use.
 
-See [LICENSE](LICENSE) for full details.
+See [LICENSE](LICENSE) for details.

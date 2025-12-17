@@ -1,9 +1,19 @@
+export type RiskLevel = 'unclassified' | 'minimal' | 'limited' | 'high' | 'unacceptable';
+export type ComplianceStatus = 'draft' | 'under_review' | 'approved' | 'retired';
+
 export interface ModelRegistry {
     id: number;
     name: string;
     description?: string;
     owner: string;
     created_at: string;
+    risk_level: RiskLevel;
+    domain?: string;
+    potential_harm?: string;
+    compliance_status: ComplianceStatus;
+    intended_purpose?: string;
+    data_sources?: string;
+    oversight_plan?: string;
 }
 
 export interface ModelVersion {
@@ -30,3 +40,11 @@ export interface ComplianceLog {
     details?: Record<string, unknown>;
     timestamp: string;
 }
+
+export interface DashboardStats {
+    total_models: number;
+    total_versions: number;
+    by_risk_level: { risk_level: string; count: number }[];
+    by_compliance_status: { status: string; count: number }[];
+}
+
