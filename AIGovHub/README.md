@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![CI/CD](https://github.com/TamTunnel/AI-Governance-Hub/actions/workflows/ci.yml/badge.svg)](https://github.com/TamTunnel/AI-Governance-Hub/actions)
+[![Development Build](https://github.com/TamTunnel/AI-Governance-Hub/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/TamTunnel/AI-Governance-Hub/actions/workflows/ci.yml?query=branch%3Adevelop)
 
 ## What Is This?
 
