@@ -42,14 +42,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       
       - name: Install dependencies
-        working-directory: ./backend
+        working-directory: ./AIGovHub/backend
         run: |
           pip install fastapi uvicorn sqlmodel psycopg2-binary alembic pydantic python-multipart
           pip install python-jose passlib reportlab
           pip install pytest httpx
       
       - name: Run tests
-        working-directory: ./backend
+        working-directory: ./AIGovHub/backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_governance_test
         run: pytest tests/ -v --tb=short || echo "Tests completed"
@@ -69,18 +69,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: AIGovHub/frontend/package-lock.json
       
       - name: Install dependencies
-        working-directory: ./frontend
+        working-directory: ./AIGovHub/frontend
         run: npm ci
       
       - name: Run linting
-        working-directory: ./frontend
+        working-directory: ./AIGovHub/frontend
         run: npm run lint || true
       
       - name: Build
-        working-directory: ./frontend
+        working-directory: ./AIGovHub/frontend
         run: npm run build
   
   # ============================================
@@ -100,7 +100,7 @@ jobs:
       - name: Build backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./AIGovHub/backend
           push: false
           tags: ai-governance-hub-backend:latest
           cache-from: type=gha
@@ -109,14 +109,35 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./AIGovHub/frontend
           push: false
           tags: ai-governance-hub-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
   
   # ============================================
-  # Deploy (Manual Trigger)
+  # Deploy to Dev
+  # ============================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: development
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy setup
+        run: echo "Configuring dev deployment..."
+        
+      - name: Trigger Dev Deployment
+        run: |
+          echo "🚀 Deploying to Development Environment (Placeholder)"
+          # Add actual deployment commands here (e.g. kubectl apply, aws ecs update)
+
+  # ============================================
+  # Deploy to Staging
   # ============================================
   deploy:
     name: Deploy to Staging
