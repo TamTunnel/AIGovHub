@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Allow src/lib for shadcn/ui components
+!src/lib
