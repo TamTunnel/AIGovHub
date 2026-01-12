@@ -3,10 +3,26 @@ import asyncio
 import httpx
 import json
 import sys
+import os
+import socket
 from datetime import datetime
+from urllib.parse import urlparse
 
-# Configuration
-API_URL = "http://localhost:8000/api/v1"
+# Configuration (allow override via env; try host.docker.internal -> localhost)
+def _url_reachable(url, timeout=1.0):
+    try:
+        p = urlparse(url)
+        host = p.hostname or "localhost"
+        port = p.port or (443 if p.scheme == "https" else 80)
+        sock = socket.create_connection((host, port), timeout)
+        sock.close()
+        return True
+    except Exception:
+        return False
+
+API_URL = os.getenv("API_URL")
+candidates = [API_URL, "http://host.docker.internal:8000/api/v1", "http://localhost:8000/api/v1"]
+API_URL = next((c for c in candidates if c and _url_reachable(c)), candidates[0])
 # For a real demo with auth, we would need to login first. 
 # Assuming default dev setup might allow open access or we mock a token if RBAC is strict.
 # Based on existing code, some endpoints might be protected.
@@ -23,7 +39,28 @@ async def run_demo():
         print("[1] Checking API Health...")
         try:
             resp = await client.get("/")
-            print(f"   ✅ API is up: {resp.json()['message']}")
+            # Try to read a 'message' (root) if present
+            try:
+                root_json = resp.json()
+            except Exception:
+                root_json = None
+
+            if resp.status_code == 200 and root_json and isinstance(root_json, dict) and root_json.get('message'):
+                print(f"   ✅ API is up: {root_json.get('message')}")
+            else:
+                # If base_url targets /api/v1, try the health route under that prefix
+                resp2 = await client.get("/health")
+                if resp2.status_code == 200:
+                    try:
+                        h = resp2.json()
+                        status_str = h.get('status') or h.get('message') or str(h)
+                    except Exception:
+                        status_str = resp2.text
+                    print(f"   ✅ API is up: {status_str}")
+                else:
+                    print(f"   ❌ Health check failed: {resp.status_code} {resp.text}")
+                    print("   Make sure 'docker compose up' is running!")
+                    sys.exit(1)
         except Exception as e:
             print(f"   ❌ API Not Reachable: {e}")
             print("   Make sure 'docker compose up' is running!")
