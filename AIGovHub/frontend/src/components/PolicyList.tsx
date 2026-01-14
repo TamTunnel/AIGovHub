@@ -1,27 +1,52 @@
 import { useEffect, useState } from "react";
-import {
-  Container,
-  Title,
-  Paper,
-  Table,
-  Badge,
-  Button,
-  Group,
-  Modal,
-  TextInput,
-  Select,
-  Textarea,
-  Switch,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import type { Policy, PolicyScope, PolicyConditionType } from "../types";
 import { getApiUrl } from "../lib/apiUrl";
-
-const SCOPE_COLORS: Record<string, string> = {
-  global: "blue",
-  organization: "grape",
-  environment: "cyan",
-};
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  ShieldCheck,
+  Plus,
+  Globe,
+  Building2,
+  Package,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 const CONDITION_LABELS: Record<string, string> = {
   require_evaluation_before_approval: "Require Evaluation Before Approval",
@@ -31,7 +56,8 @@ const CONDITION_LABELS: Record<string, string> = {
 
 export function PolicyList() {
   const [policies, setPolicies] = useState<Policy[]>([]);
-  const [opened, { open, close }] = useDisclosure(false);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [newPolicy, setNewPolicy] = useState({
     name: "",
     description: "",
@@ -41,22 +67,21 @@ export function PolicyList() {
   });
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(getApiUrl("/policies/"));
-        const data = await res.json();
-        if (!cancelled) setPolicies(data);
-      } catch {
-        console.error("Failed to load policies");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    loadPolicies();
   }, []);
 
+  const loadPolicies = async () => {
+    try {
+      const res = await fetch(getApiUrl("/policies/"));
+      const data = await res.json();
+      setPolicies(data);
+    } catch {
+      console.error("Failed to load policies");
+    }
+  };
+
   const handleCreatePolicy = async () => {
+    setLoading(true);
     try {
       const res = await fetch(getApiUrl("/policies/"), {
         method: "POST",
@@ -66,7 +91,7 @@ export function PolicyList() {
       if (res.ok) {
         const created = await res.json();
         setPolicies([created, ...policies]);
-        close();
+        setOpen(false);
         setNewPolicy({
           name: "",
           description: "",
@@ -77,118 +102,293 @@ export function PolicyList() {
       }
     } catch {
       console.error("Failed to create policy");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const rows = policies.map((policy) => (
-    <tr key={policy.id}>
-      <td>{policy.name}</td>
-      <td>
-        <Badge color={SCOPE_COLORS[policy.scope] || "gray"}>
-          {policy.scope}
-        </Badge>
-      </td>
-      <td>
-        {CONDITION_LABELS[policy.condition_type] || policy.condition_type}
-      </td>
-      <td>
-        <Badge color={policy.is_active ? "green" : "gray"}>
-          {policy.is_active ? "Active" : "Inactive"}
-        </Badge>
-      </td>
-      <td>{new Date(policy.created_at).toLocaleDateString()}</td>
-    </tr>
-  ));
+  const getScopeIcon = (scope: string) => {
+    switch (scope) {
+      case "global":
+        return <Globe className="h-3 w-3" />;
+      case "organization":
+        return <Building2 className="h-3 w-3" />;
+      case "environment":
+        return <Package className="h-3 w-3" />;
+      default:
+        return null;
+    }
+  };
+
+  const getScopeBadgeVariant = (scope: string) => {
+    switch (scope) {
+      case "global":
+        return "default";
+      case "organization":
+        return "secondary";
+      case "environment":
+        return "outline";
+      default:
+        return "outline";
+    }
+  };
+
+  // Calculate stats
+  const stats = {
+    total: policies.length,
+    active: policies.filter((p) => p.is_active).length,
+    global: policies.filter((p) => p.scope === "global").length,
+  };
 
   return (
-    <Container size="lg" py="xl">
-      <Group justify="space-between" mb="lg">
-        <Title order={2}>Governance Policies</Title>
-        <Button onClick={open}>+ New Policy</Button>
-      </Group>
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Governance Policies
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Define and manage compliance rules for AI model governance
+            </p>
+          </div>
+        </div>
 
-      <Paper shadow="xs" p="md" withBorder>
-        <Table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Scope</th>
-              <th>Condition</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>{rows}</tbody>
-        </Table>
-      </Paper>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Policy
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Create New Policy</DialogTitle>
+              <DialogDescription>
+                Define a new governance policy to enforce compliance rules
+                across your AI models.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="policyName">Policy Name *</Label>
+                <Input
+                  id="policyName"
+                  placeholder="e.g., Require Evaluation for Approval"
+                  value={newPolicy.name}
+                  onChange={(e) =>
+                    setNewPolicy({ ...newPolicy, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe what this policy enforces..."
+                  value={newPolicy.description}
+                  onChange={(e) =>
+                    setNewPolicy({ ...newPolicy, description: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="scope">Scope</Label>
+                <Select
+                  value={newPolicy.scope}
+                  onValueChange={(value) =>
+                    setNewPolicy({ ...newPolicy, scope: value as PolicyScope })
+                  }
+                >
+                  <SelectTrigger id="scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Global (All Models)</SelectItem>
+                    <SelectItem value="organization">Organization</SelectItem>
+                    <SelectItem value="environment">Environment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="conditionType">Condition Type</Label>
+                <Select
+                  value={newPolicy.condition_type}
+                  onValueChange={(value) =>
+                    setNewPolicy({
+                      ...newPolicy,
+                      condition_type: value as PolicyConditionType,
+                    })
+                  }
+                >
+                  <SelectTrigger id="conditionType">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="require_evaluation_before_approval">
+                      Require Evaluation Before Approval
+                    </SelectItem>
+                    <SelectItem value="block_high_risk_without_approval">
+                      Block High Risk Without Review
+                    </SelectItem>
+                    <SelectItem value="require_review_for_high_risk">
+                      Require Review for High Risk
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="active"
+                  checked={newPolicy.is_active}
+                  onCheckedChange={(checked) =>
+                    setNewPolicy({ ...newPolicy, is_active: checked })
+                  }
+                />
+                <Label htmlFor="active" className="cursor-pointer">
+                  Active (policy immediately enforced)
+                </Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreatePolicy}
+                disabled={loading || !newPolicy.name}
+              >
+                {loading ? "Creating..." : "Create Policy"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      <Modal opened={opened} onClose={close} title="Create New Policy">
-        <TextInput
-          label="Policy Name"
-          placeholder="e.g., Require Evaluation for Approval"
-          value={newPolicy.name}
-          onChange={(e) => setNewPolicy({ ...newPolicy, name: e.target.value })}
-          mb="md"
-        />
-        <Textarea
-          label="Description"
-          placeholder="Describe what this policy enforces..."
-          value={newPolicy.description}
-          onChange={(e) =>
-            setNewPolicy({ ...newPolicy, description: e.target.value })
-          }
-          mb="md"
-        />
-        <Select
-          label="Scope"
-          data={[
-            { value: "global", label: "Global (All Models)" },
-            { value: "organization", label: "Organization" },
-            { value: "environment", label: "Environment" },
-          ]}
-          value={newPolicy.scope}
-          onChange={(v) =>
-            setNewPolicy({ ...newPolicy, scope: v as PolicyScope })
-          }
-          mb="md"
-        />
-        <Select
-          label="Condition Type"
-          data={[
-            {
-              value: "require_evaluation_before_approval",
-              label: "Require Evaluation Before Approval",
-            },
-            {
-              value: "block_high_risk_without_approval",
-              label: "Block High Risk Without Review",
-            },
-            {
-              value: "require_review_for_high_risk",
-              label: "Require Review for High Risk",
-            },
-          ]}
-          value={newPolicy.condition_type}
-          onChange={(v) =>
-            setNewPolicy({
-              ...newPolicy,
-              condition_type: v as PolicyConditionType,
-            })
-          }
-          mb="md"
-        />
-        <Switch
-          label="Active"
-          checked={newPolicy.is_active}
-          onChange={(e) =>
-            setNewPolicy({ ...newPolicy, is_active: e.currentTarget.checked })
-          }
-          mb="md"
-        />
-        <Button fullWidth onClick={handleCreatePolicy}>
-          Create Policy
-        </Button>
-      </Modal>
-    </Container>
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Policies
+            </CardTitle>
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              Governance rules defined
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Policies
+            </CardTitle>
+            <CheckCircle className="h-4 w-4 text-success" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.active}</div>
+            <p className="text-xs text-muted-foreground">Currently enforced</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Global Policies
+            </CardTitle>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.global}</div>
+            <p className="text-xs text-muted-foreground">Apply to all models</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Policies Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Registered Policies</CardTitle>
+          <CardDescription>
+            {policies.length === 0
+              ? "No policies defined yet. Create your first policy to start enforcing governance rules."
+              : `Manage and monitor ${policies.length} governance ${policies.length === 1 ? "policy" : "policies"}`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {policies.length === 0 ? (
+            <div className="text-center py-12">
+              <ShieldCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Policies Yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Get started by creating your first governance policy
+              </p>
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Policy
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Condition</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {policies.map((policy) => (
+                  <TableRow key={policy.id}>
+                    <TableCell className="font-medium">{policy.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={getScopeBadgeVariant(policy.scope)}>
+                        <span className="flex items-center gap-1">
+                          {getScopeIcon(policy.scope)}
+                          {policy.scope}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {CONDITION_LABELS[policy.condition_type] ||
+                        policy.condition_type}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={policy.is_active ? "success" : "secondary"}
+                      >
+                        {policy.is_active ? (
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <XCircle className="h-3 w-3" />
+                            Inactive
+                          </span>
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(policy.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
