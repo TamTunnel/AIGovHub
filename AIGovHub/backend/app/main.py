@@ -9,6 +9,7 @@ from .api import policy_routes
 from .api import organization_routes
 from .api import metrics_routes
 from .api import lineage_routes
+from .api import ai_routes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,6 +53,9 @@ app.include_router(metrics_routes.router, prefix="/api/v1")
 
 # Lineage routes (datasets & dependencies)
 app.include_router(lineage_routes.router, prefix="/api/v1")
+
+# AI Governance routes (optional feature)
+app.include_router(ai_routes.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
