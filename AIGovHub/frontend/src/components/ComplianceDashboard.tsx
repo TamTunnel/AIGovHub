@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardStats } from "../types";
+import { getApiUrl } from "../lib/apiUrl";
 import {
   BarChart,
   Bar,
@@ -43,7 +44,7 @@ export function ComplianceDashboard() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/dashboard/stats");
+      const res = await fetch(getApiUrl("/dashboard/stats"));
       const data = await res.json();
       setStats(data);
     } catch (error) {

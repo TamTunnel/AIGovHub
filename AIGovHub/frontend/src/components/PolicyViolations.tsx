@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import type { PolicyViolation } from "../types";
+import { getApiUrl } from "../lib/apiUrl";
 
 export function PolicyViolations() {
   const [violations, setViolations] = useState<PolicyViolation[]>([]);
@@ -21,9 +22,7 @@ export function PolicyViolations() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          "http://localhost:8000/api/v1/policies/violations/",
-        );
+        const res = await fetch(getApiUrl("/policies/violations/"));
         const data = await res.json();
         if (!cancelled) setViolations(data);
       } catch {

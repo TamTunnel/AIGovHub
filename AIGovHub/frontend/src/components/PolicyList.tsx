@@ -15,6 +15,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { Policy, PolicyScope, PolicyConditionType } from "../types";
+import { getApiUrl } from "../lib/apiUrl";
 
 const SCOPE_COLORS: Record<string, string> = {
   global: "blue",
@@ -43,7 +44,7 @@ export function PolicyList() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/policies/");
+        const res = await fetch(getApiUrl("/policies/"));
         const data = await res.json();
         if (!cancelled) setPolicies(data);
       } catch {
@@ -57,7 +58,7 @@ export function PolicyList() {
 
   const handleCreatePolicy = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/policies/", {
+      const res = await fetch(getApiUrl("/policies/"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newPolicy),

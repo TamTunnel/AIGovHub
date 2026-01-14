@@ -6,8 +6,27 @@ import type {
   ComplianceLog,
 } from "./types";
 
+// Detect if running in GitHub Codespaces and construct the API URL accordingly
+const getApiBaseUrl = () => {
+  // Check if we're in a Codespace (look for the Codespace-specific URL pattern)
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.includes(".app.github.dev")
+  ) {
+    // Replace port 3000 with 8000 for backend API
+    const backendUrl = window.location.origin.replace(
+      "-3000.app.github.dev",
+      "-8000.app.github.dev",
+    );
+    return `${backendUrl}/api/v1`;
+  }
+
+  // Fall back to environment variable or localhost for local development
+  return `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/api/v1`;
+};
+
 const api = axios.create({
-  baseURL: "http://localhost:8000/api/v1",
+  baseURL: getApiBaseUrl(),
 });
 
 export const getModels = async () => {
