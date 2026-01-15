@@ -46,6 +46,9 @@ import {
   Package,
   CheckCircle,
   XCircle,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -107,6 +110,42 @@ export function PolicyList() {
     }
   };
 
+  const handleToggleActive = async (policy: Policy) => {
+    try {
+      const res = await fetch(getApiUrl(`/policies/${policy.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !policy.is_active }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPolicies(policies.map((p) => (p.id === policy.id ? updated : p)));
+      }
+    } catch {
+      console.error("Failed to toggle policy");
+    }
+  };
+
+  const handleDelete = async (policyId: number) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this policy? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(getApiUrl(`/policies/${policyId}`), {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setPolicies(policies.filter((p) => p.id !== policyId));
+      }
+    } catch {
+      console.error("Failed to delete policy");
+    }
+  };
+
   const getScopeIcon = (scope: string) => {
     switch (scope) {
       case "global":
@@ -133,7 +172,6 @@ export function PolicyList() {
     }
   };
 
-  // Calculate stats
   const stats = {
     total: policies.length,
     active: policies.filter((p) => p.is_active).length,
@@ -142,7 +180,6 @@ export function PolicyList() {
 
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -270,7 +307,6 @@ export function PolicyList() {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -312,7 +348,6 @@ export function PolicyList() {
         </Card>
       </div>
 
-      {/* Policies Table */}
       <Card>
         <CardHeader>
           <CardTitle>Registered Policies</CardTitle>
@@ -344,6 +379,7 @@ export function PolicyList() {
                   <TableHead>Condition</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -381,6 +417,35 @@ export function PolicyList() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(policy.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleActive(policy)}
+                          title={
+                            policy.is_active
+                              ? "Deactivate policy"
+                              : "Activate policy"
+                          }
+                        >
+                          {policy.is_active ? (
+                            <ToggleRight className="h-4 w-4" />
+                          ) : (
+                            <ToggleLeft className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(policy.id)}
+                          className="text-destructive hover:text-destructive"
+                          title="Delete policy"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
