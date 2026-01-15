@@ -3,10 +3,10 @@ services:
     image: postgres:15-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aigovhub}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -17,21 +17,29 @@ services:
     build: ./backend
     volumes:
       - ./backend:/app
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-aigovhub}
+      ENABLE_AI_FEATURES: ${ENABLE_AI_FEATURES:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash-exp}
     depends_on:
       db:
         condition: service_healthy
+    labels:
+      - "coolify.managed=true"
 
   frontend:
     build: ./frontend
-    ports:
-      - "3000:80"
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aigovhub-frontend.rule=Host(`aigovhub.coolify.lzzo.net`)"
+      - "traefik.http.routers.aigovhub-frontend.entrypoints=https"
+      - "traefik.http.routers.aigovhub-frontend.tls=true"
+      - "traefik.http.routers.aigovhub-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.aigovhub-frontend.loadbalancer.server.port=80"
+      - "coolify.managed=true"
 
 volumes:
   postgres_data:
-
